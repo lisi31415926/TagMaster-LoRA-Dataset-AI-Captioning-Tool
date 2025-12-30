@@ -7,7 +7,7 @@ import {
   Monitor, Globe, Database, RefreshCw, ArrowUpDown, Calendar, ArrowUpAZ, ArrowDownAZ,
   Server, Cpu, Copy, Clock, Activity, SlidersHorizontal, Tag, Plus, Minus, Replace,
   Square, Terminal, TriangleAlert, BarChart3, Search, Filter, Palette, User, Sparkles, PenTool,
-  WifiOff, ShieldAlert, FolderOpen, Check
+  WifiOff, ShieldAlert, FolderOpen, Check, Layers, PaintBucket, CheckCircle2, XCircle
 } from 'lucide-react';
 
 const API_PRESETS = {
@@ -80,12 +80,14 @@ const translations = {
     btnTagging: "开始生成标签",
     btnStopTagging: "停止任务",
     btnTaggingProgress: (cur, total) => `执行中 ${cur}/${total}`,
+    progressStats: (success, fail) => `成功: ${success} | 失败: ${fail}`,
     sectionExport: "导出",
     btnDownload: "下载标签 (.txt)",
     tipDownload: "* 标签文件将以图片同名txt格式下载。",
     sectionTools: "批量工具",
     btnBatchTags: "批量修改标签",
     btnTagStats: "数据集统计",
+    btnGenBlack: "一键生成黑图",
     btnSettings: "系统设置",
     modalSettingsTitle: "设置",
     groupApi: "模型服务设置",
@@ -108,9 +110,11 @@ const translations = {
     strategyOverwrite: "覆盖",
     strategyAppend: "追加到末尾",
     strategyPrepend: "添加到开头",
-    groupNetwork: "网络与熔断",
+    groupNetwork: "网络与并发控制",
     labelRetryCount: "单图失败重试次数",
     labelRetryDelay: "重试间隔 (毫秒)",
+    labelConcurrency: "并发请求数 (同时处理)",
+    labelRequestDelay: "并发间隔 (毫秒)",
     labelMaxConsecutiveErrors: "熔断阈值 (连续失败次数)",
     labelTimeout: "请求超时 (秒)",
     groupTokens: "Token 与 上下文设置",
@@ -120,6 +124,7 @@ const translations = {
     detailLow: "低 (Low - 省Token)",
     detailHigh: "高 (High)",
     helpTokens: "控制 API 的返回长度和图片上传精度 (影响发送 Token 消耗)。",
+    helpNetwork: "并发数建议 3-5。如果遇到 429 错误，请降低并发数或增加间隔。",
     groupExport: "导出设置",
     btnSelectFolder: "选择保存目录",
     labelCurrentFolder: "当前目录: ",
@@ -170,12 +175,19 @@ const translations = {
     tipShortcuts: "快捷键: ← → 切换图片, Ctrl+Enter 打标",
     fatalErrorTitle: "任务熔断中止",
     fatalErrorDesc: "检测到 API 返回严重错误、网络中断或连续失败次数过多。为保护您的额度，批量任务已自动停止。",
+    taskResultTitle: "任务完成",
+    taskResultDesc: (total, success, fail) => `本次任务共处理 ${total} 张图片。`,
+    statSuccess: "成功",
+    statFail: "失败",
     btnClose: "关闭",
     modalStatsTitle: "数据集标签统计",
     labelSearch: "搜索标签或文件名...",
     statsTotalTags: "标签总数 (去重)",
     statsAvgTags: "平均每张标签数",
-    confirmOverwrite: "确定要覆盖本地文件夹中的文件吗？\n文件: "
+    confirmOverwrite: "确定要覆盖本地文件夹中的文件吗？\n文件: ",
+    msgBlackImageGen: "正在生成黑图...",
+    msgBlackImageDone: "已生成 {count} 张黑图，保存在 black_images 文件夹中。",
+    folderRequired: "请先在【系统设置】中选择【保存目录】，以便自动创建子文件夹保存黑图。"
   },
   en: {
     appTitle: "TagMaster - LoRA Tagger",
@@ -191,12 +203,14 @@ const translations = {
     btnTagging: "Start Tagging",
     btnStopTagging: "Stop Task",
     btnTaggingProgress: (cur, total) => `Processing ${cur}/${total}`,
+    progressStats: (success, fail) => `Success: ${success} | Fail: ${fail}`,
     sectionExport: "EXPORT",
     btnDownload: "Download Tags (.txt)",
     tipDownload: "* Tag files will be downloaded as .txt.",
     sectionTools: "BATCH TOOLS",
     btnBatchTags: "Batch Edit Tags",
     btnTagStats: "Dataset Statistics",
+    btnGenBlack: "Generate Black Images",
     btnSettings: "Settings",
     modalSettingsTitle: "Settings",
     groupApi: "Model Service Settings",
@@ -219,9 +233,11 @@ const translations = {
     strategyOverwrite: "Overwrite",
     strategyAppend: "Append",
     strategyPrepend: "Prepend",
-    groupNetwork: "Network & Circuit Breaker",
+    groupNetwork: "Network & Concurrency",
     labelRetryCount: "Max Retries (Per Image)",
     labelRetryDelay: "Retry Delay (ms)",
+    labelConcurrency: "Concurrency (Parallel)",
+    labelRequestDelay: "Request Interval (ms)",
     labelMaxConsecutiveErrors: "Circuit Breaker (Max Errors)",
     labelTimeout: "Timeout (Seconds)",
     groupTokens: "Token Settings",
@@ -231,6 +247,7 @@ const translations = {
     detailLow: "Low (Save Tokens)",
     detailHigh: "High",
     helpTokens: "Controls API response length and image upload precision.",
+    helpNetwork: "Recommended concurrency 3-5. Lower if you hit 429 errors.",
     groupExport: "Export Settings",
     btnSelectFolder: "Select Output Folder",
     labelCurrentFolder: "Current Folder: ",
@@ -281,12 +298,19 @@ const translations = {
     tipShortcuts: "Shortcuts: ← → Navigate, Ctrl+Enter Tag",
     fatalErrorTitle: "Task Halted (Circuit Breaker)",
     fatalErrorDesc: "Critical API error, network failure, or too many consecutive errors detected. Task halted.",
+    taskResultTitle: "Task Completed",
+    taskResultDesc: (total, success, fail) => `Processed ${total} images.`,
+    statSuccess: "Success",
+    statFail: "Failed",
     btnClose: "Close",
     modalStatsTitle: "Dataset Tag Statistics",
     labelSearch: "Search tags or filenames...",
     statsTotalTags: "Total Unique Tags",
     statsAvgTags: "Avg Tags/Image",
-    confirmOverwrite: "Confirm overwrite file in local folder?\nFile: "
+    confirmOverwrite: "Confirm overwrite file in local folder?\nFile: ",
+    msgBlackImageGen: "Generating black images...",
+    msgBlackImageDone: "Generated {count} black images in 'black_images' folder.",
+    folderRequired: "Please select an Output Folder in Settings first to save black images."
   }
 };
 
@@ -434,7 +458,7 @@ const InputGroup = ({ label, value, onChange, type = "text", placeholder, helpTe
   </div>
 );
 
-const Sidebar = ({ t, fileInputRef, handleFileUpload, setRenameModalOpen, setBatchTagModalOpen, setStatsModalOpen, handleDelete, selectedIds, handleClearDB, isProcessing, images, runAITagging, stopTagging, progress, downloadTextFiles, setIsSettingsOpen, lang, setLang }) => (
+const Sidebar = ({ t, fileInputRef, handleFileUpload, setRenameModalOpen, setBatchTagModalOpen, setStatsModalOpen, handleDelete, selectedIds, handleClearDB, isProcessing, images, runAITagging, stopTagging, progress, downloadTextFiles, setIsSettingsOpen, lang, setLang, generateBlackImages }) => (
   <div className="w-80 bg-gray-900 border-r border-gray-800 flex flex-col h-full overflow-y-auto shrink-0 z-30">
     <div className="p-4 border-b border-gray-800">
       <h1 className="text-xl font-bold text-white flex items-center gap-2">
@@ -469,14 +493,19 @@ const Sidebar = ({ t, fileInputRef, handleFileUpload, setRenameModalOpen, setBat
         </div>
         
         {isProcessing ? (
-          <Button 
-            onClick={stopTagging} 
-            className="w-full animate-pulse bg-red-900/50 hover:bg-red-900 border border-red-500" 
-            variant="danger" 
-            icon={Square}
-          >
-            {t.btnStopTagging} ({progress.current}/{progress.total})
-          </Button>
+          <div className="space-y-2">
+            <Button 
+              onClick={stopTagging} 
+              className="w-full animate-pulse bg-red-900/50 hover:bg-red-900 border border-red-500" 
+              variant="danger" 
+              icon={Square}
+            >
+              {t.btnStopTagging} ({progress.current}/{progress.total})
+            </Button>
+            <div className="text-[10px] text-gray-400 text-center font-mono bg-gray-900 py-1 rounded">
+               {t.progressStats(progress.success, progress.fail)}
+            </div>
+          </div>
         ) : (
           <Button 
             onClick={runAITagging} 
@@ -500,6 +529,9 @@ const Sidebar = ({ t, fileInputRef, handleFileUpload, setRenameModalOpen, setBat
              {t.btnTagStats}
           </Button>
         </div>
+        <Button variant="secondary" className="w-full text-sm mt-2 border border-gray-700 bg-gray-800" icon={Layers} onClick={generateBlackImages} disabled={images.length === 0 || isProcessing}>
+             {t.btnGenBlack}
+        </Button>
       </div>
 
       <div className="space-y-2">
@@ -661,11 +693,14 @@ const SettingsModal = ({ t, settings, setSettings, setIsSettingsOpen, handleTest
           <div className="border-t border-gray-800 pt-4 space-y-4">
             <h3 className="text-sm font-semibold text-blue-400 uppercase">{t.groupNetwork}</h3>
             <div className="grid grid-cols-2 gap-4">
+               <InputGroup label={t.labelConcurrency} type="number" min="1" value={settings.concurrency} onChange={v => setSettings({...settings, concurrency: parseInt(v) || 1})} placeholder="3" />
+               <InputGroup label={t.labelRequestDelay} type="number" min="0" value={settings.requestDelay} onChange={v => setSettings({...settings, requestDelay: parseInt(v) || 0})} placeholder="200" />
                <InputGroup label={t.labelRetryCount} type="number" value={settings.retryCount} onChange={v => setSettings({...settings, retryCount: parseInt(v) || 0})} placeholder="3" />
                <InputGroup label={t.labelRetryDelay} type="number" value={settings.retryDelay} onChange={v => setSettings({...settings, retryDelay: parseInt(v) || 1000})} placeholder="1000" />
                <InputGroup label={t.labelMaxConsecutiveErrors} type="number" value={settings.maxConsecutiveErrors} onChange={v => setSettings({...settings, maxConsecutiveErrors: parseInt(v) || 3})} placeholder="3" />
                <InputGroup label={t.labelTimeout} type="number" value={settings.timeout} onChange={v => setSettings({...settings, timeout: parseInt(v) || 60})} placeholder="60" />
             </div>
+            <p className="text-xs text-gray-500">{t.helpNetwork}</p>
           </div>
 
           <div className="border-t border-gray-800 pt-4 space-y-4">
@@ -867,7 +902,7 @@ const StatsModal = ({ t, images, setOpen, setSearchTerm }) => {
     let totalTags = 0;
     images.forEach(img => {
       if (!img.caption) return;
-      const tags = img.caption.split(',').map(s => s.trim()).filter(s => s);
+      const tags = img.caption.split(/[,，]\s*/).map(s => s.trim()).filter(s => s);
       tags.forEach(tag => {
         tagCounts[tag] = (tagCounts[tag] || 0) + 1;
         totalTags++;
@@ -1169,8 +1204,9 @@ export default function LoRA_TagMaster() {
   const [renameModalOpen, setRenameModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const [progress, setProgress] = useState({ current: 0, total: 0, success: 0, fail: 0 });
   const [fatalError, setFatalError] = useState(null);
+  const [taskResult, setTaskResult] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [outputDirHandle, setOutputDirHandle] = useState(null);
 
@@ -1185,6 +1221,8 @@ export default function LoRA_TagMaster() {
       retryCount: 3,
       retryDelay: 2000,
       maxConsecutiveErrors: 3,
+      concurrency: 3, // Default concurrency
+      requestDelay: 200, // Default delay between requests
       timeout: 60,
       maxOutputTokens: 4096,
       imageDetail: 'auto',
@@ -1458,20 +1496,36 @@ export default function LoRA_TagMaster() {
       if (targetIds.has(img.id)) {
         let newCaption = img.caption || '';
         
+        // 修复1: 兼容中文逗号，增强分割健壮性
+        const currentTags = newCaption.split(/[,，]\s*/).map(s => s.trim()).filter(s => s);
+
         if (mode === 'add') {
-          if (position === 'start') {
-             if (!newCaption.startsWith(input1)) {
-                newCaption = input1 + (newCaption ? ', ' + newCaption : '');
-             }
-          } else {
-             newCaption = (newCaption ? newCaption + ', ' : '') + input1;
-          }
+           // 修复2: 支持批量添加多个标签 (如 "tag1, tag2")
+           const tagsToAdd = input1.split(/[,，]\s*/).map(s => s.trim()).filter(s => s);
+           
+           tagsToAdd.forEach(tag => {
+               if (!currentTags.includes(tag)) {
+                   if (position === 'start') {
+                       currentTags.unshift(tag);
+                   } else {
+                       currentTags.push(tag);
+                   }
+               }
+           });
+           newCaption = currentTags.join(', ');
+
         } else if (mode === 'remove') {
-          const parts = newCaption.split(',').map(s => s.trim()).filter(s => s !== input1);
-          newCaption = parts.join(', ');
+           const tagToRemove = input1.trim();
+           // 移除只针对全匹配
+           const filteredTags = currentTags.filter(s => s !== tagToRemove);
+           newCaption = filteredTags.join(', ');
+
         } else if (mode === 'replace') {
-          const parts = newCaption.split(',').map(s => s.trim()).map(s => s === input1 ? input2 : s);
-          newCaption = parts.join(', ');
+           const find = input1.trim();
+           const replace = input2.trim();
+           // 修复3: 替换后过滤空字符串 (防止替换为空时留下空位)
+           const replacedTags = currentTags.map(s => s === find ? replace : s).filter(s => s !== '');
+           newCaption = replacedTags.join(', ');
         }
 
         return { ...img, caption: newCaption, lastModified: Date.now() };
@@ -1482,12 +1536,81 @@ export default function LoRA_TagMaster() {
     setImages(updatedImages);
     setBatchTagModalOpen(false);
     
+    // 修复4: 确保每个更新都同步到 IndexedDB 和 文件系统
     for (const img of updatedImages) {
       if (targetIds.has(img.id)) {
         const { url, ...dbItem } = img; 
         await dbService.addOrUpdate(dbItem);
+        
+        // 如果连接了本地文件夹，同步写入txt
+        if (outputDirHandle && img.caption !== undefined) {
+             try {
+                const txtName = img.name.substring(0, img.name.lastIndexOf('.')) + '.txt';
+                const txtHandle = await outputDirHandle.getFileHandle(txtName, { create: true });
+                const txtWritable = await txtHandle.createWritable();
+                await txtWritable.write(img.caption);
+                await txtWritable.close();
+            } catch (err) {
+                console.error("Failed to sync batch update to disk:", err);
+            }
+        }
       }
     }
+  };
+
+  // New Feature: Generate Black Images
+  const generateBlackImages = async () => {
+      const targets = displayedImages.filter(img => selectedIds.size === 0 || selectedIds.has(img.id));
+      if (targets.length === 0) {
+          alert(t.alertSelect);
+          return;
+      }
+      
+      if (!outputDirHandle) {
+          alert(t.folderRequired);
+          return;
+      }
+
+      if(!window.confirm(`Are you sure you want to generate ${targets.length} black images? This will create a 'black_images' subfolder.`)) {
+          return;
+      }
+
+      setIsProcessing(true);
+      try {
+          // Create or get subfolder 'black_images'
+          const subDirHandle = await outputDirHandle.getDirectoryHandle('black_images', { create: true });
+          
+          let count = 0;
+          for (const img of targets) {
+             const canvas = document.createElement('canvas');
+             canvas.width = img.width;
+             canvas.height = img.height;
+             const ctx = canvas.getContext('2d');
+             ctx.fillStyle = '#000000'; // Pure black
+             ctx.fillRect(0, 0, canvas.width, canvas.height);
+             
+             // Get file type (default to png if unknown, but usually match extension)
+             let mimeType = 'image/png';
+             if (img.name.toLowerCase().endsWith('.jpg') || img.name.toLowerCase().endsWith('.jpeg')) mimeType = 'image/jpeg';
+             
+             // To Blob
+             const blob = await new Promise(resolve => canvas.toBlob(resolve, mimeType));
+             
+             // Write to subfolder
+             const fileHandle = await subDirHandle.getFileHandle(img.name, { create: true });
+             const writable = await fileHandle.createWritable();
+             await writable.write(blob);
+             await writable.close();
+             count++;
+          }
+          alert(t.msgBlackImageDone.replace('{count}', count));
+
+      } catch (err) {
+          console.error("Error generating black images:", err);
+          alert("Error: " + err.message);
+      } finally {
+          setIsProcessing(false);
+      }
   };
 
   const fetchWithRetry = async (url, options, retries, delay, timeoutSecs = 60) => {
@@ -1561,8 +1684,20 @@ export default function LoRA_TagMaster() {
     stopProcessing.current = false;
     abortControllerRef.current = new AbortController();
     setFatalError(null);
+    setTaskResult(null);
     setIsProcessing(true);
-    setProgress({ current: 0, total: targets.length });
+    
+    // Initialize Counters
+    let finishedCount = 0;
+    let successCount = 0;
+    let failCount = 0;
+    const total = targets.length;
+    setProgress({ current: 0, total, success: 0, fail: 0 });
+
+    // Task Queue
+    const queue = [...targets];
+    let consecutiveErrors = 0;
+    const maxConsecutive = settings.maxConsecutiveErrors || 3;
 
     const extractContent = (data) => {
       if (!data) return "";
@@ -1592,136 +1727,152 @@ export default function LoRA_TagMaster() {
       return ""; 
     };
 
-    let consecutiveErrors = 0;
-    const maxConsecutive = settings.maxConsecutiveErrors || 3;
-
-    for (let i = 0; i < targets.length; i++) {
-      if (stopProcessing.current) {
-        break;
-      }
-
-      const img = targets[i];
-      setImages(prev => prev.map(p => p.id === img.id ? { ...p, status: 'processing', log: `Sending request to ${settings.model}...` } : p));
-      
-      try {
-        const base64 = await fileToBase64(img.file);
-        const payload = {
-          model: settings.model,
-          messages: [
-            { role: "system", content: settings.systemPrompt },
-            { 
-                role: "user", 
-                content: [
-                    { type: "text", text: "Tag this image." }, 
-                    { 
-                        type: "image_url", 
-                        image_url: { 
-                            url: base64,
-                            detail: settings.imageDetail || 'auto'
-                        } 
-                    }
-                ] 
-            }
-          ],
-          stream: false,
-          max_tokens: settings.maxOutputTokens || 4096 
-        };
-        
-        const response = await fetchWithRetry(
-          `${settings.baseUrl}/chat/completions`, 
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.apiKey || 'not-needed'}` },
-            body: JSON.stringify(payload),
-            signal: abortControllerRef.current.signal
-          },
-          settings.retryCount || 3,
-          settings.retryDelay || 2000,
-          settings.timeout || 60
-        );
-
-        if (!response) throw new Error("No response from server");
-        
-        const responseText = await response.text(); 
-        
-        if (!response.ok) {
-           const msg = `HTTP ${response.status}: ${responseText.slice(0, 200)}`;
-           if (response.status === 401 || response.status === 403) {
-              throw new Error(`FATAL AUTH ERROR: ${msg}`);
-           }
-           if (response.status === 429) {
-              throw new Error(`RATE LIMIT: ${msg}`);
-           }
-           throw new Error(msg);
+    // Worker Function
+    const processImage = async (img) => {
+        if (stopProcessing.current) return;
+        if (settings.requestDelay > 0) {
+            await new Promise(r => setTimeout(r, settings.requestDelay));
         }
 
-        let data;
+        setImages(prev => prev.map(p => p.id === img.id ? { ...p, status: 'processing', log: `Sending request to ${settings.model}...` } : p));
+        
         try {
-            data = JSON.parse(responseText);
-        } catch(e) {
-            throw new Error("Invalid JSON response: " + responseText.slice(0, 100));
-        }
-
-        const newTags = extractContent(data);
-        
-        if (!newTags) {
-            if (data.choices && data.choices[0] && data.choices[0].finish_reason === 'content_filter') {
-               throw new Error("Content blocked by safety filters.");
-            }
-            if (data.promptFeedback && data.promptFeedback.blockReason) {
-                throw new Error(`Gemini blocked: ${data.promptFeedback.blockReason}`);
-            }
-            throw new Error("Empty content received. Raw: " + responseText.slice(0, 100));
-        }
-        
-        consecutiveErrors = 0;
-        
-        setImages(prev => prev.map(p => {
-          if (p.id === img.id) {
-            let finalCaption = newTags;
-            if (settings.appendMode === 'append' && p.caption) finalCaption = p.caption + ', ' + newTags;
-            if (settings.appendMode === 'prepend' && p.caption) finalCaption = newTags + ', ' + p.caption;
-            
-            const updatedImg = { 
-                ...p, 
-                caption: finalCaption, 
-                status: 'done', 
-                log: `Success. Model: ${settings.model}, Len: ${newTags.length}`,
-                lastModified: Date.now() 
+            const base64 = await fileToBase64(img.file);
+            const payload = {
+                model: settings.model,
+                messages: [
+                    { role: "system", content: settings.systemPrompt },
+                    { 
+                        role: "user", 
+                        content: [
+                            { type: "text", text: "Tag this image." }, 
+                            { 
+                                type: "image_url", 
+                                image_url: { 
+                                    url: base64,
+                                    detail: settings.imageDetail || 'auto'
+                                } 
+                            }
+                        ] 
+                    }
+                ],
+                stream: false,
+                max_tokens: settings.maxOutputTokens || 4096 
             };
-            const { url, ...dbItem } = updatedImg;
-            dbService.addOrUpdate(dbItem);
-            return updatedImg;
-          }
-          return p;
-        }));
-      } catch (error) {
-        if (error.name === 'AbortError' || stopProcessing.current) {
-           setImages(prev => prev.map(p => p.id === img.id ? { ...p, status: 'pending', log: 'Task cancelled.' } : p));
-           break;
-        }
 
-        consecutiveErrors++;
-        console.error("Tagging error", error);
-        
-        const errorMsg = error.message || "Unknown error";
-        setImages(prev => prev.map(p => p.id === img.id ? { ...p, status: 'error', log: `Error: ${errorMsg}` } : p));
-        
-        if (errorMsg.includes('FATAL AUTH')) {
-           stopProcessing.current = true;
-           setFatalError(`Authentication Failed. Please check your API Key.\n${errorMsg}`);
-           break;
+            const response = await fetchWithRetry(
+                `${settings.baseUrl}/chat/completions`, 
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.apiKey || 'not-needed'}` },
+                    body: JSON.stringify(payload),
+                    signal: abortControllerRef.current.signal
+                },
+                settings.retryCount || 3,
+                settings.retryDelay || 2000,
+                settings.timeout || 60
+            );
+
+            if (!response) throw new Error("No response from server");
+            
+            const responseText = await response.text(); 
+            
+            if (!response.ok) {
+               const msg = `HTTP ${response.status}: ${responseText.slice(0, 200)}`;
+               if (response.status === 401 || response.status === 403) {
+                  throw new Error(`FATAL AUTH ERROR: ${msg}`);
+               }
+               if (response.status === 429) {
+                  throw new Error(`RATE LIMIT: ${msg}`);
+               }
+               throw new Error(msg);
+            }
+
+            let data;
+            try {
+                data = JSON.parse(responseText);
+            } catch(e) {
+                throw new Error("Invalid JSON response: " + responseText.slice(0, 100));
+            }
+
+            const newTags = extractContent(data);
+            
+            if (!newTags) {
+                if (data.choices && data.choices[0] && data.choices[0].finish_reason === 'content_filter') {
+                   throw new Error("Content blocked by safety filters.");
+                }
+                if (data.promptFeedback && data.promptFeedback.blockReason) {
+                    throw new Error(`Gemini blocked: ${data.promptFeedback.blockReason}`);
+                }
+                throw new Error("Empty content received. Raw: " + responseText.slice(0, 100));
+            }
+
+            // Success
+            consecutiveErrors = 0;
+            successCount++;
+            
+            setImages(prev => prev.map(p => {
+              if (p.id === img.id) {
+                let finalCaption = newTags;
+                if (settings.appendMode === 'append' && p.caption) finalCaption = p.caption + ', ' + newTags;
+                if (settings.appendMode === 'prepend' && p.caption) finalCaption = newTags + ', ' + p.caption;
+                
+                const updatedImg = { 
+                    ...p, 
+                    caption: finalCaption, 
+                    status: 'done', 
+                    log: `Success. Model: ${settings.model}, Len: ${newTags.length}`,
+                    lastModified: Date.now() 
+                };
+                const { url, ...dbItem } = updatedImg;
+                dbService.addOrUpdate(dbItem);
+                return updatedImg;
+              }
+              return p;
+            }));
+
+        } catch (error) {
+            if (error.name === 'AbortError' || stopProcessing.current) {
+               setImages(prev => prev.map(p => p.id === img.id ? { ...p, status: 'pending', log: 'Task cancelled.' } : p));
+               return; 
+            }
+
+            consecutiveErrors++;
+            failCount++;
+            const errorMsg = error.message || "Unknown error";
+            console.error("Tagging error", errorMsg);
+            
+            setImages(prev => prev.map(p => p.id === img.id ? { ...p, status: 'error', log: `Error: ${errorMsg}` } : p));
+            
+            if (errorMsg.includes('FATAL AUTH')) {
+               stopProcessing.current = true;
+               setFatalError(`Authentication Failed. Please check your API Key.\n${errorMsg}`);
+            } else if (consecutiveErrors >= maxConsecutive) {
+                stopProcessing.current = true;
+                setFatalError(`Circuit Breaker Triggered: ${consecutiveErrors} consecutive errors.\nLast error: ${errorMsg}`);
+            }
+        } finally {
+            finishedCount++;
+            setProgress({ current: finishedCount, total, success: successCount, fail: failCount });
         }
-        
-        if (consecutiveErrors >= maxConsecutive) {
-            stopProcessing.current = true;
-            setFatalError(`Circuit Breaker Triggered: ${consecutiveErrors} consecutive errors.\nLast error: ${errorMsg}`);
-            break;
+    };
+
+    // Worker Pool Implementation
+    const concurrency = Math.min(settings.concurrency || 3, targets.length);
+    const workers = Array(concurrency).fill(null).map(async () => {
+        while (queue.length > 0 && !stopProcessing.current && !fatalError) {
+             const img = queue.shift();
+             if (img) await processImage(img);
         }
-      }
-      setProgress({ current: i + 1, total: targets.length });
-    }
+    });
+
+    await Promise.all(workers);
     setIsProcessing(false);
+    
+    // Only show summary if not fatal error
+    if (!stopProcessing.current && !fatalError) {
+        setTaskResult({ total, success: successCount, fail: failCount });
+    }
   };
 
   const handleUpdateCaption = (id, txt) => {
@@ -1863,6 +2014,7 @@ export default function LoRA_TagMaster() {
         handleClearDB={handleClearDB} isProcessing={isProcessing} images={images}
         runAITagging={runAITagging} stopTagging={stopTagging} progress={progress} downloadTextFiles={downloadTextFiles}
         setIsSettingsOpen={setIsSettingsOpen} lang={lang} setLang={setLang}
+        generateBlackImages={generateBlackImages}
       />
       
       <div className="flex-1 flex flex-col min-w-0">
@@ -2000,6 +2152,34 @@ export default function LoRA_TagMaster() {
                 </div>
                 <div className="flex justify-end gap-3">
                     <Button variant="secondary" onClick={() => { setFatalError(null); stopTagging(); }}>{t.btnClose}</Button>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {taskResult && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="bg-gray-900 border border-green-500 rounded-xl p-6 max-w-md w-full shadow-2xl relative animate-in fade-in zoom-in duration-200">
+                <h3 className="text-xl font-bold text-green-500 mb-4 flex items-center gap-2">
+                    <CheckCircle2 size={24} /> {t.taskResultTitle}
+                </h3>
+                <p className="text-gray-300 mb-4 text-sm leading-relaxed">
+                   {t.taskResultDesc(taskResult.total, taskResult.success, taskResult.fail)}
+                </p>
+                
+                <div className="flex gap-4 mb-6">
+                    <div className="flex-1 bg-green-900/20 border border-green-900 p-3 rounded text-center">
+                        <div className="text-2xl font-bold text-green-500">{taskResult.success}</div>
+                        <div className="text-xs text-gray-400 uppercase tracking-wider mt-1">{t.statSuccess}</div>
+                    </div>
+                    <div className="flex-1 bg-red-900/20 border border-red-900 p-3 rounded text-center">
+                        <div className="text-2xl font-bold text-red-500">{taskResult.fail}</div>
+                        <div className="text-xs text-gray-400 uppercase tracking-wider mt-1">{t.statFail}</div>
+                    </div>
+                </div>
+
+                <div className="flex justify-end gap-3">
+                    <Button onClick={() => setTaskResult(null)}>{t.btnClose}</Button>
                 </div>
             </div>
         </div>
